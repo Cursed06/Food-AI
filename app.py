@@ -23,7 +23,7 @@ IMG_SIZE = (128, 128)
 def load_model():
     if not os.path.exists(MODEL_PATH):
         st.info("📥 Downloading model from Google Drive...")
-        url = f"https://drive.google.com/uc?id={GDRIVE_MODEL_ID}"
+        url = f"https://drive.google.com/file/d/1uSPfQFZUqbPJyvAjKLPkw0hKfD56XH1q/view?usp=sharing"
         gdown.download(url, MODEL_PATH, quiet=False)
     return tf.keras.models.load_model(MODEL_PATH)
 
@@ -76,3 +76,4 @@ if uploaded_file is not None:
     st.subheader("📊 Confidence Breakdown")
     for i, c in enumerate(class_names):
         st.write(f"{c}: {probs[i]:.3f}")
+
