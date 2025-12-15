@@ -43,7 +43,7 @@ def load_model(path=MODEL_PATH, gdrive_id=None):
         if gdrive_id is None:
             st.error("Model not found and no Google Drive ID provided!")
             return None
-        url = f"https://drive.google.com/uc?id={gdrive_id}"
+        url = f"https://drive.google.com/file/d/1uSPfQFZUqbPJyvAjKLPkw0hKfD56XH1q/view?usp=drive_link"
         gdown.download(url, path, quiet=False)
     model = tf.keras.models.load_model(path)
     return model
@@ -103,3 +103,4 @@ if uploaded_file and model:
 
     except ValueError as e:
         st.error(f"Prediction failed: {e}")
+
