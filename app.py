@@ -1,4 +1,3 @@
-@@ -1,32 +1,78 @@
 import streamlit as st
 import tensorflow as tf
 import numpy as np
@@ -97,3 +96,4 @@ if uploaded_file:
     st.subheader("📊 Confidence Breakdown")
     for i, c in enumerate(class_names):
         st.write(f"{c}: {probs[i]:.3f}")
+
