@@ -11,38 +11,35 @@ import gdown
 # =========================
 MODEL_PATH = "food_model_new.h5"
 LABELS_PATH = "labels.txt"
-TKPI_PATH = "tkpi_indonesian_foods.csv"  # CSV file path
+TKPI_PATH = "tkpi_indonesian_foods.csv"  # your CSV file
 
-# Google Drive file IDs (for large files)
+# Google Drive file ID for large model
 GDRIVE_MODEL_ID = "1uSPfQFZUqbPJyvAjKLPkw0hKfD56XH1q"
 
 # =========================
 # FUNCTIONS
 # =========================
 
-# 1️⃣ Load CSV safely
+# 1️⃣ Load CSV safely (skip bad lines, multiple encodings)
 @st.cache_data
 def load_csv(path):
-    """
-    Load CSV safely with multiple encoding fallback
-    """
     for enc in ['utf-8', 'latin1', 'cp1252']:
         try:
-            df = pd.read_csv(path, encoding=enc)
+            df = pd.read_csv(path, encoding=enc, on_bad_lines='skip')
             return df
-        except UnicodeDecodeError:
+        except Exception:
             continue
-    st.error(f"Failed to read CSV: {path}. Unsupported encoding.")
-    return pd.DataFrame()  # return empty DataFrame as fallback
+    st.error(f"Failed to read CSV: {path}.")
+    return pd.DataFrame()  # fallback
 
-# 2️⃣ Load model (download from Google Drive if not present)
+# 2️⃣ Load TensorFlow model (download from Google Drive if missing)
 @st.cache_resource
 def load_model(path=MODEL_PATH, gdrive_id=None):
     if not os.path.exists(path):
         if gdrive_id is None:
             st.error("Model not found and no Google Drive ID provided!")
             return None
-        url = f"https://drive.google.com/uc?id={gdrive_id}"
+        url = f"https://drive.google.com/file/d/1uSPfQFZUqbPJyvAjKLPkw0hKfD56XH1q/view?usp=drive_link"
         gdown.download(url, path, quiet=False)
     model = tf.keras.models.load_model(path)
     return model
@@ -86,4 +83,3 @@ if uploaded_file and model:
 
     st.image(image, caption="Uploaded Image", use_column_width=True)
     st.success(f"Predicted: {predicted_label}")
-
