@@ -5,6 +5,7 @@ import numpy as np
 from PIL import Image
 import os
 import gdown
+from tensorflow.keras.applications.vgg16 import preprocess_input
 
 # =========================
 # CONFIG
@@ -83,17 +84,20 @@ if uploaded_file and model:
         # 1️⃣ Load image in RGB and resize
         image = Image.open(uploaded_file).convert('RGB').resize((224, 224))
 
-        # 2️⃣ Convert to numpy array and normalize
-        img_array = np.array(image) / 255.0
+        # 2️⃣ Convert to numpy array
+        img_array = np.array(image, dtype=np.float32)
 
-        # 3️⃣ Add batch dimension (shape: 1,224,224,3)
+        # 3️⃣ Add batch dimension (1, 224, 224, 3)
         img_array = np.expand_dims(img_array, axis=0)
 
-        # 4️⃣ Make prediction
+        # 4️⃣ Preprocess for VGG16
+        img_array = preprocess_input(img_array)
+
+        # 5️⃣ Predict
         prediction = model.predict(img_array)
         predicted_label = labels[np.argmax(prediction)] if labels else "Unknown"
 
-        # 5️⃣ Display image and prediction
+        # 6️⃣ Display
         st.image(image, caption="Uploaded Image", use_column_width=True)
         st.success(f"Predicted: {predicted_label}")
 
