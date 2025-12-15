@@ -60,6 +60,18 @@ def load_csv():
 tkpi_df = load_csv()
 
 # =========================
+# DETECT FOOD COLUMN
+# =========================
+food_col = None
+for col in tkpi_df.columns:
+    if "food" in col.lower():  # find any column with "food" in its name
+        food_col = col
+        break
+
+if food_col is None:
+    st.warning("⚠️ No column related to food names found in CSV. Nutritional info will not be displayed.")
+
+# =========================
 # STREAMLIT UI
 # =========================
 st.title("🍱 Food AI with Nutrition Info")
@@ -95,12 +107,13 @@ if uploaded_file is not None:
             st.write(f"{c}: {probs[i]:.3f}")
 
         # --- Display nutritional info ---
-        info = tkpi_df[tkpi_df['Food'].str.lower() == predicted_label.lower()]
-        if not info.empty:
-            st.subheader(f"📋 Nutritional Information for {predicted_label}")
-            st.table(info)
-        else:
-            st.info("Nutritional info not found in CSV.")
+        if food_col:
+            info = tkpi_df[tkpi_df[food_col].str.lower() == predicted_label.lower()]
+            if not info.empty:
+                st.subheader(f"📋 Nutritional Information for {predicted_label}")
+                st.table(info)
+            else:
+                st.info("Nutritional info not found in CSV.")
 
     except Exception as e:
         st.error(f"Prediction failed: {e}")
