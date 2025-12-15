@@ -73,17 +73,13 @@ if uploaded_file is not None:
         st.image(img, caption="Uploaded Image", use_column_width=True)
 
         # --- Preprocess image ---
-        img_resized = img.resize(IMG_SIZE)
-        img_array = np.array(img_resized, dtype=np.float32)
-        img_array = np.expand_dims(img_array, axis=0)
-        img_array = preprocess_input(img_array)
+        img_resized = img.resize((128,128))
+        img_array = np.array(img_resized, dtype=np.float32) / 255.0
+        img_array = np.expand_dims(img_array, axis=0)  # shape: (1,128,128,3)
+        
+        # --- Predict directly ---
+        preds = model.predict(img_array)
 
-        # --- Extract features ---
-        features = cnn_base.predict(img_array)          # shape: (1,7,7,512)
-        features_flat = features.reshape(1, -1)         # shape: (1,25088)
-
-        # --- Predict using Dense model ---
-        preds = dense_model.predict(features_flat)
         probs = tf.nn.softmax(preds[0]).numpy()
         class_id = np.argmax(probs)
         confidence = float(probs[class_id])
@@ -109,3 +105,4 @@ if uploaded_file is not None:
 
     except Exception as e:
         st.error(f"Prediction failed: {e}")
+
