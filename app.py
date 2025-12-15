@@ -51,15 +51,8 @@ class_names = load_labels()
 def load_csv():
     for enc in ["utf-8", "latin1", "cp1252"]:
         try:
-            df = pd.read_csv(TKPI_PATH, encoding=enc, on_bad_lines="skip")
-            
-            # --- If all data is in one column, split by comma ---
-            if df.shape[1] == 1:
-                df = df.iloc[:,0].str.split(",", expand=True)
-                # Take first row as header
-                df.columns = df.iloc[0]
-                df = df[1:].reset_index(drop=True)
-            
+            # ✅ Tambahkan sep=';' agar CSV dengan delimiter titik-koma terbaca
+            df = pd.read_csv(TKPI_PATH, encoding=enc, sep=';', on_bad_lines="skip")
             return df
         except UnicodeDecodeError:
             continue
@@ -121,3 +114,4 @@ if uploaded_file is not None:
 
     except Exception as e:
         st.error(f"Prediction failed: {e}")
+
