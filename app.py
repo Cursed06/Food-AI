@@ -1,8 +1,8 @@
 import streamlit as st
+import pandas as pd
 import tensorflow as tf
 import numpy as np
 from PIL import Image
-import pandas as pd
 import os
 import gdown
 
@@ -11,97 +11,78 @@ import gdown
 # =========================
 MODEL_PATH = "food_model_new.h5"
 LABELS_PATH = "labels.txt"
-TKPI_PATH = "tkpi_indonesian_foods.csv"
+TKPI_PATH = "tkpi.csv"  # CSV file path
 
-# Google Drive FILE ID (model)
+# Google Drive file IDs (for large files)
 GDRIVE_MODEL_ID = "1uSPfQFZUqbPJyvAjKLPkw0hKfD56XH1q"
 
-IMG_SIZE = (128, 128)
+# =========================
+# FUNCTIONS
+# =========================
 
-# =========================
-# LOAD MODEL (CACHED)
-# =========================
-@st.cache_resource
-def load_model():
-    if not os.path.exists(MODEL_PATH):
-        st.info("📥 Downloading model from Google Drive...")
-        url = f"https://drive.google.com/uc?id={GDRIVE_MODEL_ID}"
-        gdown.download(url, MODEL_PATH, quiet=False)
-    return tf.keras.models.load_model(MODEL_PATH)
-
-model = load_model()
-
-# =========================
-# LOAD LABELS
-# =========================
-with open(LABELS_PATH, "r") as f:
-    class_names = [line.strip() for line in f.readlines()]
-
-# =========================
-# LOAD TKPI DATA
-# =========================
+# 1️⃣ Load CSV safely
 @st.cache_data
-def load_tkpi():
-    return pd.read_csv(TKPI_PATH)
+def load_csv(path):
+    """
+    Load CSV safely with multiple encoding fallback
+    """
+    for enc in ['utf-8', 'latin1', 'cp1252']:
+        try:
+            df = pd.read_csv(path, encoding=enc)
+            return df
+        except UnicodeDecodeError:
+            continue
+    st.error(f"Failed to read CSV: {path}. Unsupported encoding.")
+    return pd.DataFrame()  # return empty DataFrame as fallback
 
-tkpi_df = load_tkpi()
+# 2️⃣ Load model (download from Google Drive if not present)
+@st.cache_resource
+def load_model(path=MODEL_PATH, gdrive_id=None):
+    if not os.path.exists(path):
+        if gdrive_id is None:
+            st.error("Model not found and no Google Drive ID provided!")
+            return None
+        url = f"https://drive.google.com/uc?id={gdrive_id}"
+        gdown.download(url, path, quiet=False)
+    model = tf.keras.models.load_model(path)
+    return model
+
+# 3️⃣ Load labels
+@st.cache_data
+def load_labels(path):
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            labels = [line.strip() for line in f.readlines()]
+        return labels
+    except Exception as e:
+        st.error(f"Failed to load labels: {e}")
+        return []
 
 # =========================
-# UI
+# LOAD DATA
 # =========================
-st.title("🍱 Food Image Recognition AI")
-st.write("Upload a food image and let the AI predict the category.")
+tkpi_df = load_csv(TKPI_PATH)
+model = load_model(MODEL_PATH, GDRIVE_MODEL_ID)
+labels = load_labels(LABELS_PATH)
 
-uploaded_file = st.file_uploader(
-    "Upload an image...",
-    type=["jpg", "jpeg", "png"]
-)
+# =========================
+# STREAMLIT UI
+# =========================
+st.title("Food AI App")
 
-if uploaded_file is not None:
-    img = Image.open(uploaded_file).convert("RGB")
-    st.image(img, caption="Uploaded Image", use_column_width=True)
+st.subheader("TKPI Data Preview")
+st.dataframe(tkpi_df.head())
 
-    # =========================
-    # PREPROCESS
-    # =========================
-    img_resized = img.resize(IMG_SIZE)
-    img_array = np.array(img_resized) / 255.0
+st.subheader("Predict Food Image")
+uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
+
+if uploaded_file and model:
+    image = Image.open(uploaded_file).resize((224, 224))
+    img_array = np.array(image) / 255.0
     img_array = np.expand_dims(img_array, axis=0)
 
-    # =========================
-    # PREDICT
-    # =========================
-    preds = model.predict(img_array)
-    probs = tf.nn.softmax(preds[0]).numpy()
+    prediction = model.predict(img_array)
+    predicted_label = labels[np.argmax(prediction)] if labels else "Unknown"
 
-    class_id = int(np.argmax(probs))
-    confidence = float(probs[class_id])
-    predicted_label = class_names[class_id]
-
-    # =========================
-    # OUTPUT: AI PREDICTION
-    # =========================
-    st.subheader("🔍 Prediction")
-    st.write(f"**Label:** {predicted_label}")
-    st.write(f"**Confidence:** {confidence:.2f}")
-
-    # =========================
-    # OUTPUT: TKPI DATA
-    # =========================
-    st.subheader("🍽 Informasi Gizi (TKPI 2017)")
-
-    food_info = tkpi_df[tkpi_df["label"] == predicted_label]
-
-    if food_info.empty:
-        st.info("Data gizi tidak tersedia untuk makanan ini.")
-    else:
-        st.table(food_info.drop(columns=["label"]))
-
-    st.caption("📚 Sumber data gizi: TKPI 2017 (per 100 gram)")
-
-    # =========================
-    # CONFIDENCE BREAKDOWN
-    # =========================
-    with st.expander("📊 Confidence Breakdown"):
-        for i, c in enumerate(class_names):
-            st.write(f"{c}: {probs[i]:.3f}")
+    st.image(image, caption="Uploaded Image", use_column_width=True)
+    st.success(f"Predicted: {predicted_label}")
