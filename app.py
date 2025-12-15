@@ -14,15 +14,12 @@ MODEL_PATH = "food_model_new.h5"
 LABELS_PATH = "labels.txt"
 TKPI_PATH = "tkpi_indonesian_foods.csv"  # CSV with nutritional info
 
-# Google Drive FILE ID for model
 GDRIVE_MODEL_ID = "1uSPfQFZUqbPJyvAjKLPkw0hKfD56XH1q"
-
 IMG_SIZE = (224, 224)  # CNN input size
 
 # =========================
-# LOAD MODELS
+# LOAD MODELS & DATA
 # =========================
-
 @st.cache_resource
 def load_dense_model():
     if not os.path.exists(MODEL_PATH):
@@ -33,18 +30,28 @@ def load_dense_model():
 
 @st.cache_resource
 def load_cnn_base():
-    # CNN feature extractor (VGG16 without top)
     return VGG16(weights="imagenet", include_top=False, input_shape=(224,224,3))
 
 @st.cache_data
 def load_labels():
-    with open(LABELS_PATH, "r", encoding="utf-8") as f:
-        return [line.strip() for line in f.readlines()]
+    for enc in ['utf-8', 'latin1', 'cp1252']:
+        try:
+            with open(LABELS_PATH, "r", encoding=enc) as f:
+                return [line.strip() for line in f.readlines()]
+        except UnicodeDecodeError:
+            continue
+    st.error(f"Failed to load labels: {LABELS_PATH}")
+    return []
 
 @st.cache_data
 def load_csv():
-    # Load nutritional info CSV
-    return pd.read_csv(TKPI_PATH, on_bad_lines="skip")
+    for enc in ['utf-8', 'latin1', 'cp1252']:
+        try:
+            return pd.read_csv(TKPI_PATH, encoding=enc, on_bad_lines="skip")
+        except UnicodeDecodeError:
+            continue
+    st.error(f"Failed to load CSV: {TKPI_PATH}")
+    return pd.DataFrame()
 
 dense_model = load_dense_model()
 cnn_base = load_cnn_base()
@@ -65,33 +72,34 @@ if uploaded_file is not None:
         img = Image.open(uploaded_file).convert("RGB")
         st.image(img, caption="Uploaded Image", use_column_width=True)
 
-        # --- Preprocess ---
+        # --- Preprocess image ---
         img_resized = img.resize(IMG_SIZE)
         img_array = np.array(img_resized, dtype=np.float32)
         img_array = np.expand_dims(img_array, axis=0)
         img_array = preprocess_input(img_array)
 
         # --- Extract features ---
-        features = cnn_base.predict(img_array)         # shape: (1,7,7,512)
-        features_flat = features.reshape(1, -1)        # shape: (1,25088)
+        features = cnn_base.predict(img_array)          # shape: (1,7,7,512)
+        features_flat = features.reshape(1, -1)         # shape: (1,25088)
 
-        # --- Predict ---
+        # --- Predict using Dense model ---
         preds = dense_model.predict(features_flat)
         probs = tf.nn.softmax(preds[0]).numpy()
         class_id = np.argmax(probs)
         confidence = float(probs[class_id])
-        predicted_label = class_names[class_id]
+        predicted_label = class_names[class_id] if class_names else "Unknown"
 
-        # --- Display prediction ---
+        # --- Show prediction ---
         st.subheader("🔍 Prediction")
         st.write(f"**Label:** {predicted_label}")
         st.write(f"**Confidence:** {confidence:.2f}")
 
+        # --- Show confidence breakdown ---
         st.subheader("📊 Confidence Breakdown")
         for i, c in enumerate(class_names):
             st.write(f"{c}: {probs[i]:.3f}")
 
-        # --- Display nutritional info from CSV ---
+        # --- Show nutritional info ---
         info = tkpi_df[tkpi_df['Food'].str.lower() == predicted_label.lower()]
         if not info.empty:
             st.subheader(f"📋 Nutritional Information for {predicted_label}")
