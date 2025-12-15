@@ -20,9 +20,12 @@ GDRIVE_MODEL_ID = "1uSPfQFZUqbPJyvAjKLPkw0hKfD56XH1q"
 # FUNCTIONS
 # =========================
 
-# 1️⃣ Load CSV safely (skip bad lines, multiple encodings)
+# 1️⃣ Load CSV safely
 @st.cache_data
 def load_csv(path):
+    """
+    Loads CSV safely using multiple encodings and skips malformed rows
+    """
     for enc in ['utf-8', 'latin1', 'cp1252']:
         try:
             df = pd.read_csv(path, encoding=enc, on_bad_lines='skip')
@@ -32,14 +35,14 @@ def load_csv(path):
     st.error(f"Failed to read CSV: {path}.")
     return pd.DataFrame()  # fallback
 
-# 2️⃣ Load TensorFlow model (download from Google Drive if missing)
+# 2️⃣ Load TensorFlow model
 @st.cache_resource
 def load_model(path=MODEL_PATH, gdrive_id=None):
     if not os.path.exists(path):
         if gdrive_id is None:
             st.error("Model not found and no Google Drive ID provided!")
             return None
-        url = f"https://drive.google.com/file/d/1uSPfQFZUqbPJyvAjKLPkw0hKfD56XH1q/view?usp=drive_link"
+        url = f"https://drive.google.com/uc?id={gdrive_id}"
         gdown.download(url, path, quiet=False)
     model = tf.keras.models.load_model(path)
     return model
@@ -67,19 +70,32 @@ labels = load_labels(LABELS_PATH)
 # =========================
 st.title("Food AI App")
 
+# ---- TKPI CSV preview ----
 st.subheader("TKPI Data Preview")
 st.dataframe(tkpi_df.head())
 
+# ---- Image Prediction ----
 st.subheader("Predict Food Image")
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
 
 if uploaded_file and model:
-    image = Image.open(uploaded_file).resize((224, 224))
-    img_array = np.array(image) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
+    try:
+        # 1️⃣ Load image in RGB and resize
+        image = Image.open(uploaded_file).convert('RGB').resize((224, 224))
 
-    prediction = model.predict(img_array)
-    predicted_label = labels[np.argmax(prediction)] if labels else "Unknown"
+        # 2️⃣ Convert to numpy array and normalize
+        img_array = np.array(image) / 255.0
 
-    st.image(image, caption="Uploaded Image", use_column_width=True)
-    st.success(f"Predicted: {predicted_label}")
+        # 3️⃣ Add batch dimension (shape: 1,224,224,3)
+        img_array = np.expand_dims(img_array, axis=0)
+
+        # 4️⃣ Make prediction
+        prediction = model.predict(img_array)
+        predicted_label = labels[np.argmax(prediction)] if labels else "Unknown"
+
+        # 5️⃣ Display image and prediction
+        st.image(image, caption="Uploaded Image", use_column_width=True)
+        st.success(f"Predicted: {predicted_label}")
+
+    except ValueError as e:
+        st.error(f"Prediction failed: {e}")
