@@ -11,7 +11,7 @@ import gdown
 # =========================
 MODEL_PATH = "food_model_new.h5"
 LABELS_PATH = "labels.txt"
-TKPI_PATH = "tkpi.csv"  # CSV file path
+TKPI_PATH = "tkpi_indonesian_foods.csv"  # CSV file path
 
 # Google Drive file IDs (for large files)
 GDRIVE_MODEL_ID = "1uSPfQFZUqbPJyvAjKLPkw0hKfD56XH1q"
@@ -86,3 +86,4 @@ if uploaded_file and model:
 
     st.image(image, caption="Uploaded Image", use_column_width=True)
     st.success(f"Predicted: {predicted_label}")
+
