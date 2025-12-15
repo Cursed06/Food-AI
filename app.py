@@ -64,7 +64,7 @@ tkpi_df = load_csv()
 # =========================
 food_col = None
 for col in tkpi_df.columns:
-    if "food" in col.lower():  # find any column with "food" in its name
+    if "food_name" in col.lower():  # find any column with "food" in its name
         food_col = col
         break
 
@@ -117,3 +117,4 @@ if uploaded_file is not None:
 
     except Exception as e:
         st.error(f"Prediction failed: {e}")
+
