@@ -1,106 +1,84 @@
-import streamlit as st
-import pandas as pd
+import tensorflow as tf
 import numpy as np
 from PIL import Image
+import pandas as pd
 import os
 import gdown
-import tensorflow as tf
-from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input
 
-# =========================
-# CONFIG
+@@ -10,8 +11,9 @@
 # =========================
 MODEL_PATH = "food_model_new.h5"
 LABELS_PATH = "labels.txt"
 TKPI_PATH = "tkpi_indonesian_foods.csv"
 
-# Google Drive file ID for large model
+# 🔗 Google Drive FILE ID (NOT the full URL)
+# Google Drive FILE ID (model)
 GDRIVE_MODEL_ID = "1uSPfQFZUqbPJyvAjKLPkw0hKfD56XH1q"
 
-# =========================
-# FUNCTIONS
-# =========================
+IMG_SIZE = (128, 128)
+@@ -23,7 +25,7 @@
+def load_model():
+    if not os.path.exists(MODEL_PATH):
+        st.info("📥 Downloading model from Google Drive...")
+        url = f"https://drive.google.com/file/d/1uSPfQFZUqbPJyvAjKLPkw0hKfD56XH1q/view?usp=sharing"
+        url = f"https://drive.google.com/uc?id={GDRIVE_MODEL_ID}"
+        gdown.download(url, MODEL_PATH, quiet=False)
+    return tf.keras.models.load_model(MODEL_PATH)
 
-# 1️⃣ Load CSV safely
+@@ -35,6 +37,15 @@ def load_model():
+with open(LABELS_PATH, "r") as f:
+    class_names = [line.strip() for line in f.readlines()]
+
+# =========================
+# LOAD TKPI DATA
+# =========================
 @st.cache_data
-def load_csv(path):
-    for enc in ['utf-8', 'latin1', 'cp1252']:
-        try:
-            df = pd.read_csv(path, encoding=enc, on_bad_lines='skip')
-            return df
-        except Exception:
-            continue
-    st.error(f"Failed to read CSV: {path}.")
-    return pd.DataFrame()
+def load_tkpi():
+    return pd.read_csv(TKPI_PATH)
 
-# 2️⃣ Load Dense model (trained on features)
-@st.cache_resource
-def load_dense_model(path=MODEL_PATH, gdrive_id=None):
-    if not os.path.exists(path):
-        if gdrive_id is None:
-            st.error("Model not found and no Google Drive ID provided!")
-            return None
-        url = f"https://drive.google.com/uc?id={gdrive_id}"
-        gdown.download(url, path, quiet=False)
-    model = tf.keras.models.load_model(path)
-    return model
-
-# 3️⃣ Load labels
-@st.cache_data
-def load_labels(path):
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            labels = [line.strip() for line in f.readlines()]
-        return labels
-    except Exception as e:
-        st.error(f"Failed to load labels: {e}")
-        return []
-
-# 4️⃣ Feature extractor (CNN base)
-@st.cache_resource
-def load_cnn_base():
-    base_model = VGG16(weights='imagenet', include_top=False, input_shape=(224,224,3))
-    return base_model
+tkpi_df = load_tkpi()
 
 # =========================
-# LOAD DATA & MODELS
+# UI
 # =========================
-tkpi_df = load_csv(TKPI_PATH)
-dense_model = load_dense_model(MODEL_PATH, GDRIVE_MODEL_ID)
-labels = load_labels(LABELS_PATH)
-cnn_base = load_cnn_base()  # feature extractor
+@@ -63,17 +74,34 @@ def load_model():
+    preds = model.predict(img_array)
+    probs = tf.nn.softmax(preds[0]).numpy()
 
-# =========================
-# STREAMLIT UI
-# =========================
-st.title("Food AI App")
+    class_id = np.argmax(probs)
+    class_id = int(np.argmax(probs))
+    confidence = float(probs[class_id])
+    predicted_label = class_names[class_id]
 
-# TKPI CSV preview
-st.subheader("TKPI Data Preview")
-st.dataframe(tkpi_df.head())
+    # =========================
+    # OUTPUT
+    # OUTPUT: AI PREDICTION
+    # =========================
+    st.subheader("🔍 Prediction")
+    st.write(f"**Label:** {class_names[class_id]}")
+    st.write(f"**Label:** {predicted_label}")
+    st.write(f"**Confidence:** {confidence:.2f}")
 
-# Image Prediction
-st.subheader("Predict Food Image")
-uploaded_file = st.file_uploader("Choose an image...", type=["jpg","png","jpeg"])
+    st.subheader("📊 Confidence Breakdown")
+    for i, c in enumerate(class_names):
+        st.write(f"{c}: {probs[i]:.3f}")
+    # =========================
+    # OUTPUT: TKPI DATA
+    # =========================
+    st.subheader("🍽 Informasi Gizi (TKPI 2017)")
 
-if uploaded_file and dense_model and cnn_base:
-    try:
-        # 1️⃣ Load image and resize
-        image = Image.open(uploaded_file).convert('RGB').resize((224,224))
+    food_info = tkpi_df[tkpi_df["label"] == predicted_label]
 
-        # 2️⃣ Convert to numpy array
-        img_array = np.array(image, dtype=np.float32)
+    if food_info.empty:
+        st.info("Data gizi tidak tersedia untuk makanan ini.")
+    else:
+        st.table(food_info.drop(columns=["label"]))
 
-        # 3️⃣ Add batch dimension
-        img_array = np.expand_dims(img_array, axis=0)
+    st.caption("📚 Sumber data gizi: TKPI 2017 (per 100 gram)")
 
-        # 4️⃣ Preprocess for VGG16
-        img_array = preprocess_input(img_array)
-
-        # 5️⃣ Extract features using CNN base
-        features = cnn_base.predict(img_array)          # shape: (1,7,7,512)
-        features_flat = features.reshape(1, -1)         # shape: (1, 25088)
-
-        # 6️⃣ Predict using Dense model
-        prediction = dense_model.predict(features_flat)
-        predicted_label = label_
+    # =========================
+    # CONFIDENCE BREAKDOWN
+    # =========================
+    with st.expander("📊 Confidence Breakdown"):
+        for i, c in enumerate(class_names):
+            st.write(f"{c}: {probs[i]:.3f}")
