@@ -98,10 +98,16 @@ if uploaded_file is not None:
         st.write(f"**Label:** {predicted_label}")
         st.write(f"**Confidence:** {confidence:.2f}")
 
-        # --- Confidence breakdown ---
-        st.subheader("📊 Confidence Breakdown")
-        for i, c in enumerate(class_names):
-            st.write(f"{c}: {probs[i]:.3f}")
+        # --- Confidence breakdown (top 3 other foods) ---
+        st.subheader("📊 Confidence Breakdown (Top 3 Other Foods)")
+        # buat list of (class_name, prob)
+        prob_list = [(c, float(probs[i])) for i, c in enumerate(class_names) if c != predicted_label]
+        # urutkan descending
+        prob_list.sort(key=lambda x: x[1], reverse=True)
+        # ambil top 3
+        top3 = prob_list[:3]
+        for c, p in top3:
+            st.write(f"{c}: {p:.3f}")
 
         # --- Display nutritional info ---
         if food_col:
@@ -114,5 +120,6 @@ if uploaded_file is not None:
 
     except Exception as e:
         st.error(f"Prediction failed: {e}")
+
 
 
