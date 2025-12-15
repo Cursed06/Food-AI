@@ -64,7 +64,7 @@ tkpi_df = load_csv()
 # =========================
 # FOOD COLUMN
 # =========================
-food_col = "food_name" if "food_name" in tkpi_df.columns else None
+food_col = "label" if "label" in tkpi_df.columns else None
 if food_col is None:
     st.warning("⚠️ No column named 'food_name' found in CSV. Nutritional info will not be displayed.")
 
@@ -114,4 +114,5 @@ if uploaded_file is not None:
 
     except Exception as e:
         st.error(f"Prediction failed: {e}")
+
 
