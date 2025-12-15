@@ -51,7 +51,16 @@ class_names = load_labels()
 def load_csv():
     for enc in ["utf-8", "latin1", "cp1252"]:
         try:
-            return pd.read_csv(TKPI_PATH, encoding=enc, on_bad_lines="skip")
+            df = pd.read_csv(TKPI_PATH, encoding=enc, on_bad_lines="skip")
+            
+            # --- If all data is in one column, split by comma ---
+            if df.shape[1] == 1:
+                df = df.iloc[:,0].str.split(",", expand=True)
+                # Take first row as header
+                df.columns = df.iloc[0]
+                df = df[1:].reset_index(drop=True)
+            
+            return df
         except UnicodeDecodeError:
             continue
     st.error(f"Failed to load CSV: {TKPI_PATH}")
@@ -60,16 +69,11 @@ def load_csv():
 tkpi_df = load_csv()
 
 # =========================
-# DETECT FOOD COLUMN
+# FOOD COLUMN
 # =========================
-food_col = None
-for col in tkpi_df.columns:
-    if "food_name" in col.lower():  # find any column with "food" in its name
-        food_col = col
-        break
-
+food_col = "food_name" if "food_name" in tkpi_df.columns else None
 if food_col is None:
-    st.warning("⚠️ No column related to food names found in CSV. Nutritional info will not be displayed.")
+    st.warning("⚠️ No column named 'food_name' found in CSV. Nutritional info will not be displayed.")
 
 # =========================
 # STREAMLIT UI
@@ -117,4 +121,3 @@ if uploaded_file is not None:
 
     except Exception as e:
         st.error(f"Prediction failed: {e}")
-
